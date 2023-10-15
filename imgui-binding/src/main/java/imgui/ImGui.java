@@ -18,13 +18,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.ref.WeakReference;
-import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Optional;
-import java.util.Properties;
 
 public class ImGui {
     private static final String LIB_PATH_PROP = "imgui.library.path";
@@ -67,18 +64,11 @@ public class ImGui {
         final String extractedLibAbsPath = tryLoadFromClasspath(fullLibName);
 
         if (libPath != null) {
-            System.load(Paths.get(libPath).resolve(fullLibName).toAbsolutePath().toString());
+            System.load(Paths.get(libPath).resolve(fullLibName).toFile().getAbsolutePath());
+        } else if (extractedLibAbsPath != null) {
+            System.load(extractedLibAbsPath);
         } else {
-            try {
-                System.loadLibrary(libName);
-            } catch (Exception | Error e) {
-                final String extractedLibAbsPath = tryLoadFromClasspath(fullLibName);
-                if (extractedLibAbsPath != null) {
-                    System.load(extractedLibAbsPath);
-                } else {
-                    throw e;
-                }
-            }
+            System.loadLibrary(libName);
         }
 
         IMGUI_CONTEXT = new ImGuiContext(0);
@@ -147,38 +137,17 @@ public class ImGui {
                 return null;
             }
 
-            final String version = getVersionString().orElse("undefined");
-            final Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(LIB_TMP_DIR_PREFIX).resolve(version);
-            if (!Files.exists(tmpDir)) {
-                Files.createDirectories(tmpDir);
-            }
+            final Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir")).resolve(LIB_TMP_DIR_PREFIX);
+            tmpDir.toFile().mkdirs();
 
             final Path libBin = tmpDir.resolve(fullLibName);
-            try {
-                Files.copy(is, libBin, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AccessDeniedException e) {
-                if (!Files.exists(libBin)) {
-                    throw e;
-                }
-            }
+            Files.copy(is, libBin, StandardCopyOption.REPLACE_EXISTING);
+            libBin.toFile().deleteOnExit();
 
-            return libBin.toAbsolutePath().toString();
+            return libBin.toFile().getAbsolutePath();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private static Optional<String> getVersionString() {
-        final Properties properties = new Properties();
-        try (InputStream is = ImGui.class.getResourceAsStream("/imgui/imgui-java.properties")) {
-            if (is != null) {
-                properties.load(is);
-                return Optional.of(properties.get("imgui.java.version").toString());
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return Optional.empty();
     }
 
     /**

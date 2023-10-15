@@ -1,7 +1,7 @@
 import java.text.SimpleDateFormat
 
 ext {
-    lwjglVersion = '3.3.3'
+    lwjglVersion = '3.3.2'
 }
 
 allprojects {
@@ -16,7 +16,6 @@ allprojects {
         configureEach {
             from(project.rootDir) {
                 include 'LICENSE'
-                into 'META-INF'
             }
 
             manifest {
